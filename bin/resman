@@ -1,0 +1,16 @@
+#!/usr/bin/env php
+<?php
+/**
+ * This file is part of ResMan library.
+ *
+ * Copyright (c) 2015 DTForce, s.r.o. (http://www.dtforce.com)
+ *
+ * For the full copyright and license information, please view
+ * the file LICENSE that was distributed with this source code.
+ */
+
+require __DIR__ . '/../../../../vendor/autoload.php';
+
+$options = getopt("c:");
+$resMan = new DTForce\ResMan\ResMan($options['c']);
+$resMan->updateGeneratedResources();
