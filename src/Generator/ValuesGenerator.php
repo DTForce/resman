@@ -17,14 +17,14 @@ use Nette\Neon\Neon;
 use PhpParser;
 use PhpParser\BuilderFactory;
 use PhpParser\Node\Const_;
-use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ArrayDimFetch;
-use PhpParser\Node\Expr\ArrayItem;
+use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\BinaryOp\Identical;
 use PhpParser\Node\Expr\StaticPropertyFetch;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
+use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\ClassConst;
 use PhpParser\Node\Stmt\If_;
 use PhpParser\Node\Stmt\Return_;
@@ -57,23 +57,41 @@ final class ValuesGenerator
 		assert(isset($definition['class']));
 		assert(isset($definition['defaultVersion']));
 
+		$addFolder = null;
+		$addNamespace = null;
+		if (isset($definition['addNamespace'])) {
+			$addNamespace = $definition['addNamespace'];
+			$addFolder = implode(DIRECTORY_SEPARATOR, explode('\\', $addNamespace));
+		}
+
 		$type = $this->getType($definition);
 		$defaultVersion = $definition['defaultVersion'];
 		list($versions, $keys) = $this->processVersions($definition['versions'], $type, $actualDir, $defaultVersion);
 
-		$output = $this->configuration->getDir() . DIRECTORY_SEPARATOR .
-			$this->configuration->getOutputFolder() . DIRECTORY_SEPARATOR . $definition['class'] . '.php';
+		if ($addFolder !== null) {
+			$output = implode(DIRECTORY_SEPARATOR, [
+				$this->configuration->getDir(),	$this->configuration->getOutputFolder(), $addFolder, $definition['class'] . '.php']
+			);
+		} else {
+			$output = implode(DIRECTORY_SEPARATOR, [
+				$this->configuration->getDir(), $this->configuration->getOutputFolder(), $definition['class'] . '.php'
+			]);
+		}
+
+		$namespace = $addNamespace === null ?
+			$this->configuration->getNamespace() : $this->configuration->getNamespace() . '\\' . $addNamespace;
 
 		$constants = Helper::createIntConstants(array_flip($keys));
 		$node = $this->createClassFromData(
 			$definition['class'],
-			$this->configuration->getNamespace(),
+			$namespace,
 			$constants,
 			$defaultVersion,
 			Helper::createArray($versions)
 		);
 
 		$prettyPrinter = new PrettyPrinter\Standard();
+		mkdir(dirname($output), 0777, true);
 		file_put_contents($output, $prettyPrinter->prettyPrintFile([$node]));
 	}
 
@@ -81,18 +99,19 @@ final class ValuesGenerator
 	/**
 	 * @param string $className
 	 * @param string $namespace
-	 * @param Const_[] $consts
+	 * @param Const_[] $constants
+	 * @param string $defaultVersion
 	 * @param Array_ $values
 	 *
 	 * @return PhpParser\Node
 	 */
-	private function createClassFromData($className, $namespace, $consts, $defaultVersion, Array_ $values)
+	private function createClassFromData($className, $namespace, $constants, $defaultVersion, Array_ $values)
 	{
 		$factory = new BuilderFactory();
 		return $factory->namespace($namespace)
 			->addStmt(
 				$factory->class($className)
-					->addStmt(new ClassConst($consts))
+					->addStmt(new ClassConst($constants))
 					->addStmt(
 						$factory->property('values')
 							->makePrivate()
@@ -118,9 +137,41 @@ final class ValuesGenerator
 							)
 							->addStmts([
 								new If_(new Identical(new Variable('version'), new PhpParser\Node\Expr\ConstFetch(new Name(["null"]))), [
-									"stmts" => [new Assign(new Variable('version'), new StaticPropertyFetch(new Name($className), 'actualVersion'))]
+									"stmts" => [
+										new Assign(
+											new Variable('version'),
+											new StaticPropertyFetch(new Name($className), 'actualVersion')
+										)
+									]
 								]),
-								new Return_(new ArrayDimFetch(new ArrayDimFetch(new StaticPropertyFetch(new Name($className), 'values'), new Variable('version')), new Variable('key')))
+								new Return_(
+									new ArrayDimFetch(
+										new ArrayDimFetch(
+											new StaticPropertyFetch(new Name($className), 'values'),
+											new Variable('version')
+										),
+										new Variable('key')
+									)
+								)
+							])
+					)
+					->addStmt(
+						$factory->method('setActualVersion')
+							->makePublic()
+							->makeStatic()
+							->addParam(
+								$factory->param('version')
+							)
+							->addStmts([
+								new Assign(new StaticPropertyFetch(new Name($className), 'actualVersion'), new Variable('version'))
+							])
+					)
+					->addStmt(
+						$factory->method('getDefaultVersion')
+							->makePublic()
+							->makeStatic()
+							->addStmts([
+								new Return_(new String_($defaultVersion))
 							])
 					)
 			)->getNode();
@@ -170,11 +221,13 @@ final class ValuesGenerator
 
 
 	/**
-	 * @param string $name
-	 * @param string $version
+	 * @param $name
+	 * @param $version
 	 * @param array $flippedKeys
 	 *
 	 * @return array
+	 * @throws MissingKeyInVersionException
+	 * @throws UndefinedKeysFoundException
 	 */
 	private function processVersion($name, $version, array $flippedKeys)
 	{
