@@ -14,7 +14,7 @@
 		"symfony/console": "~2.7",
 		"nikic/php-parser": "~2.0"
 	},
-	"bin" : ["bin/resman.php"],
+	"bin" : ["bin/resman"],
 	"autoload": {
 		"psr-4": {
 			"DTForce\\ResMan\\": "src"
