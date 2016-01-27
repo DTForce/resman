@@ -66,11 +66,13 @@ final class ValuesGenerator
 			$addFolder = implode(DIRECTORY_SEPARATOR, explode('\\', $addNamespace));
 		}
 
+		$convertKeysToInt = isset($definition['convertKeysToInt']) ? $definition['convertKeysToInt'] : false;
+
 		$versionKeyPrefix = isset($definition['versionKeyPrefix']) ? $definition['versionKeyPrefix'] : 'VERSION_';
 
 		$type = $this->getType($definition);
 		$defaultVersion = $definition['defaultVersion'];
-		list($versions, $keys) = $this->processVersions($definition['versions'], $type, $actualDir, $defaultVersion);
+		list($versions, $keys) = $this->processVersions($definition['versions'], $type, $actualDir, $defaultVersion, $convertKeysToInt);
 
 		if ($addFolder !== null) {
 			$output = implode(DIRECTORY_SEPARATOR, [
@@ -85,7 +87,11 @@ final class ValuesGenerator
 		$namespace = $addNamespace === null ?
 			$this->configuration->getNamespace() : $this->configuration->getNamespace() . '\\' . $addNamespace;
 
-		$constants = Helper::createIntConstants(array_flip($keys));
+		if($convertKeysToInt) {
+			$constants = Helper::createIntConstants(array_flip($keys));
+		} else {
+			$constants = Helper::createStringConstants($keys);
+		}
 		$constants = array_merge($constants, $this->addVersionKeysConstants($versions, $versionKeyPrefix));
 
 		$node = $this->createClassFromData(
@@ -154,6 +160,30 @@ final class ValuesGenerator
 							])
 					)
 					->addStmt(
+						$factory->method('hasValue')
+							->makePublic()
+							->makeStatic()
+							->addParam(
+								$factory->param('key')
+							)
+							->addParam(
+								$factory->param('version')
+							)
+							->addStmts([
+								new Return_(
+									new PhpParser\Node\Expr\Isset_([
+										new ArrayDimFetch(
+											new ArrayDimFetch(
+												new StaticPropertyFetch(new Name($className), 'values'),
+												new Variable('version')
+											),
+											new Variable('key')
+										)
+									])
+								)
+							])
+					)
+					->addStmt(
 						$factory->method('getDefaultVersion')
 							->makePublic()
 							->makeStatic()
@@ -197,7 +227,7 @@ final class ValuesGenerator
 	 *
 	 * @return array
 	 */
-	private function processVersions($versions, $type, $actualDir, $defaultVersion)
+	private function processVersions($versions, $type, $actualDir, $defaultVersion, $convertKeysToInt)
 	{
 		if ($type === 'csv') {
 			$result = [];
@@ -208,7 +238,13 @@ final class ValuesGenerator
 			$result = $versions;
 		}
 		$keys = array_keys($result[$defaultVersion]);
-		$flippedKeys = array_flip($keys);
+		if ($convertKeysToInt) {
+			$flippedKeys = array_flip($keys);
+		} else {
+			$keys = $this->keysNameValueProcess($keys);
+			$flippedKeys = $keys;
+		}
+
 
 		foreach ($result as $name => $version) {
 			$result[$name] = $this->processVersion($name, $version, $flippedKeys);
@@ -252,6 +288,16 @@ final class ValuesGenerator
 			$constants[$versionKeyPrefix . strtoupper($versionName)] = $versionName;
 		}
 		return Helper::createStringConstants($constants);
+	}
+
+
+	private function keysNameValueProcess($keys)
+	{
+		$keysNew = [];
+		foreach ($keys as $key){
+			$keysNew[$key] = $key;
+		}
+		return $keysNew;
 	}
 
 }
