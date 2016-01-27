@@ -16,11 +16,13 @@ use DTForce\ResMan\Exception\UndefinedKeysFoundException;
 use Nette\Neon\Neon;
 use PhpParser;
 use PhpParser\BuilderFactory;
+use PhpParser\Node\Arg;
 use PhpParser\Node\Const_;
 use PhpParser\Node\Expr\ArrayDimFetch;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\BinaryOp\Identical;
+use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\StaticPropertyFetch;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
@@ -64,6 +66,8 @@ final class ValuesGenerator
 			$addFolder = implode(DIRECTORY_SEPARATOR, explode('\\', $addNamespace));
 		}
 
+		$versionKeyPrefix = isset($definition['versionKeyPrefix']) ? $definition['versionKeyPrefix'] : 'VERSION_';
+
 		$type = $this->getType($definition);
 		$defaultVersion = $definition['defaultVersion'];
 		list($versions, $keys) = $this->processVersions($definition['versions'], $type, $actualDir, $defaultVersion);
@@ -82,16 +86,19 @@ final class ValuesGenerator
 			$this->configuration->getNamespace() : $this->configuration->getNamespace() . '\\' . $addNamespace;
 
 		$constants = Helper::createIntConstants(array_flip($keys));
+		$constants = array_merge($constants, $this->addVersionKeysConstants($versions, $versionKeyPrefix));
+
 		$node = $this->createClassFromData(
 			$definition['class'],
 			$namespace,
 			$constants,
 			$defaultVersion,
-			Helper::createArray($versions)
+			Helper::createArray($versions),
+			Helper::createArray(array_keys($versions))
 		);
 
 		$prettyPrinter = new PrettyPrinter\Standard();
-		mkdir(dirname($output), 0777, true);
+		@mkdir(dirname($output), 0777, true);
 		file_put_contents($output, $prettyPrinter->prettyPrintFile([$node]));
 	}
 
@@ -105,7 +112,7 @@ final class ValuesGenerator
 	 *
 	 * @return PhpParser\Node
 	 */
-	private function createClassFromData($className, $namespace, $constants, $defaultVersion, Array_ $values)
+	private function createClassFromData($className, $namespace, $constants, $defaultVersion, Array_ $values, Array_ $allowedVersions)
 	{
 		$factory = new BuilderFactory();
 		return $factory->namespace($namespace)
@@ -119,10 +126,10 @@ final class ValuesGenerator
 							->setDefault($values)
 					)
 					->addStmt(
-						$factory->property('actualVersion')
+						$factory->property('allowedVersions')
 							->makePrivate()
 							->makeStatic()
-							->setDefault($defaultVersion)
+							->setDefault($allowedVersions)
 					)
 					->addStmt(
 						$factory->method('getValue')
@@ -133,17 +140,8 @@ final class ValuesGenerator
 							)
 							->addParam(
 								$factory->param('version')
-									->setDefault(null)
 							)
 							->addStmts([
-								new If_(new Identical(new Variable('version'), new PhpParser\Node\Expr\ConstFetch(new Name(["null"]))), [
-									"stmts" => [
-										new Assign(
-											new Variable('version'),
-											new StaticPropertyFetch(new Name($className), 'actualVersion')
-										)
-									]
-								]),
 								new Return_(
 									new ArrayDimFetch(
 										new ArrayDimFetch(
@@ -156,22 +154,22 @@ final class ValuesGenerator
 							])
 					)
 					->addStmt(
-						$factory->method('setActualVersion')
+						$factory->method('getDefaultVersion')
+							->makePublic()
+							->makeStatic()
+							->addStmts([
+								new Return_(new String_($defaultVersion))
+							])
+					)
+					->addStmt(
+						$factory->method('isVersionAllowed')
 							->makePublic()
 							->makeStatic()
 							->addParam(
 								$factory->param('version')
 							)
 							->addStmts([
-								new Assign(new StaticPropertyFetch(new Name($className), 'actualVersion'), new Variable('version'))
-							])
-					)
-					->addStmt(
-						$factory->method('getDefaultVersion')
-							->makePublic()
-							->makeStatic()
-							->addStmts([
-								new Return_(new String_($defaultVersion))
+								new Return_(new FuncCall(new Name("in_array"), [new Arg(new Variable("version")), new Arg(new StaticPropertyFetch(new Name($className), 'allowedVersions'))]))
 							])
 					)
 			)->getNode();
@@ -244,6 +242,16 @@ final class ValuesGenerator
 			throw new UndefinedKeysFoundException(array_keys($version), $name);
 		}
 		return $newVersion;
+	}
+
+
+	private function addVersionKeysConstants($versions, $versionKeyPrefix)
+	{
+		$constants = [];
+		foreach ($versions as $versionName => $version) {
+			$constants[$versionKeyPrefix . strtoupper($versionName)] = $versionName;
+		}
+		return Helper::createStringConstants($constants);
 	}
 
 }
