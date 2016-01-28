@@ -85,4 +85,47 @@ final class Helper
 		return $map;
 	}
 
+
+	/**
+	 * Convert underscore to camelCase format.
+	 *
+	 * @param $property
+	 *
+	 * @return mixed
+	 */
+	public static function toCamelCase($property)
+	{
+		$func = create_function('$match', 'return strtoupper($match[1]);');
+
+		return preg_replace_callback('/_([a-z])/', $func, $property);
+	}
+
+
+	/**
+	 * Convert underscore to PascalCase format.
+	 *
+	 * @param $property
+	 *
+	 * @return mixed
+	 */
+	public static function toPascalCase($property)
+	{
+		return ucfirst(self::toCamelCase($property));
+	}
+
+
+	/**
+	 * Convert camelCase to underscore format.
+	 *
+	 * @param $property
+	 *
+	 * @return mixed
+	 */
+	public static function toUnderscore($property)
+	{
+		$func = create_function('$match', 'return \'_\' . strtolower($match[1]);');
+
+		return preg_replace_callback('/([A-Z])/', $func, $property);
+	}
+
 }
