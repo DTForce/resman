@@ -10,11 +10,13 @@
 
 namespace DTForce\ResMan\Generator;
 
+use DirectoryIterator;
 use PhpParser\Node\Const_;
 use PhpParser\Node\Expr\ArrayItem;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Scalar\LNumber;
 use PhpParser\Node\Scalar\String_;
+use PhpParser\Node\Stmt\ClassConst;
 
 
 final class Helper
@@ -29,7 +31,7 @@ final class Helper
 	{
 		$consts = [];
 		foreach ($data as $key => $value) {
-			$consts[] = new Const_($key, new String_($value));
+			$consts[] = new ClassConst([new Const_($key, new String_($value))]);
 		}
 		return $consts;
 	}
@@ -126,6 +128,32 @@ final class Helper
 		$func = create_function('$match', 'return \'_\' . strtolower($match[1]);');
 
 		return preg_replace_callback('/([A-Z])/', $func, $property);
+	}
+
+
+	/**
+	 * @param string $dirPath
+	 * @param bool $skipItself
+	 */
+	public static function rmDirRec($dirPath, $skipItself = false)
+	{
+		if (is_dir($dirPath)) {
+			$dirIter = new DirectoryIterator($dirPath);
+			foreach ($dirIter as $file) {
+				if ($file->isDot()) {
+					continue;
+				}
+
+				if ($file->isDir()) {
+					self::rmDirRec($file->getRealPath());
+				} else {
+					unlink($file->getRealPath());
+				}
+			}
+			if ( ! $skipItself) {
+				rmdir($dirPath);
+			}
+		}
 	}
 
 }

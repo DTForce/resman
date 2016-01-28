@@ -76,7 +76,7 @@ final class ValuesGenerator
 
 	/**
 	 * @param array $definition
-	 * @param Const_[] $constants
+	 * @param ClassConst[] $constants
 	 * @param $versions
 	 *
 	 * @return PhpParser\Node
@@ -89,7 +89,7 @@ final class ValuesGenerator
 		return $factory->namespace($this->getNamespace($definition))
 			->addStmt(
 				$factory->class($className)
-					->addStmt(new ClassConst($constants))
+					->addStmts($constants)
 					->addStmt(
 						$this->createValueField($factory, Helper::createArray($versions))
 					)
@@ -181,7 +181,7 @@ final class ValuesGenerator
 	 * @param $versions
 	 * @param $versionKeyPrefix
 	 *
-	 * @return PhpParser\Node\Const_[]
+	 * @return ClassConst[]
 	 */
 	private function addVersionKeysConstants($versions, $versionKeyPrefix)
 	{
@@ -315,7 +315,7 @@ final class ValuesGenerator
 		$factory = new BuilderFactory();
 		$classNode = $factory->namespace($this->getNamespace($definition, 'Keys'))
 							->addStmt($factory->class($className)
-								->addStmt(new ClassConst($constants))
+								->addStmts($constants)
 							)->getNode();
 
 		$addFolder = null;

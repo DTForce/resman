@@ -11,6 +11,7 @@
 namespace DTForce\ResMan;
 
 use DTForce\ResMan\Generator\ConstantGenerator;
+use DTForce\ResMan\Generator\Helper;
 use DTForce\ResMan\Generator\ValuesGenerator;
 use Nette\Neon\Neon;
 use Zend\Code\Generator\ValueGenerator;
@@ -82,6 +83,8 @@ final class ResMan
 
 		$this->constants = isset($definition['constants']) ? $definition['constants'] : [];
 		$this->values = isset($definition['values']) ? $definition['values'] : [];
+
+		Helper::rmDirRec($dir . DIRECTORY_SEPARATOR . $definition['output'], true);
 
 		return new Configuration($definition['output'], $definition['namespace'], $dir);
 	}
