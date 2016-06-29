@@ -64,7 +64,7 @@ final class Helper
 			if (is_array($value)) {
 				$items[] = new ArrayItem(self::createArray($value), new String_($key));
 			} else {
-				$items[] = new ArrayItem(new String_($value), new String_($key));
+				$items[] = new ArrayItem(new String_($value, ['kind' => String_::KIND_DOUBLE_QUOTED]), new String_($key));
 			}
 
 		}
