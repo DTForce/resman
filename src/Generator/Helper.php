@@ -25,7 +25,7 @@ final class Helper
 	/**
 	 * @param array $data
 	 *
-	 * @return Const_[]
+	 * @return ClassConst[]
 	 */
 	public static function createStringConstants(array $data)
 	{
@@ -77,7 +77,7 @@ final class Helper
 	 *
 	 * @return array
 	 */
-	public static function readCsvValues($file)
+	public static function readCsvKeysValues($file)
 	{
 		$csv = array_map('str_getcsv', file($file));
 		$map = [];
@@ -85,6 +85,22 @@ final class Helper
 			$map[$row[0]] = $row[1];
 		}
 		return $map;
+	}
+
+
+	/**
+	 * @param string $file
+	 *
+	 * @return array
+	 */
+	public static function readCsvValues($file)
+	{
+		$csv = array_map('str_getcsv', file($file));
+		$list = [];
+		foreach ($csv as $row) {
+			$list[] = $row[0];
+		}
+		return $list;
 	}
 
 
@@ -154,6 +170,38 @@ final class Helper
 				rmdir($dirPath);
 			}
 		}
+	}
+
+
+	public static function namesFromValues(array $values)
+	{
+		$map = [];
+		foreach ($values as $value) {
+			$key = self::formatName($value);
+			$map[$key] = $value;
+		}
+		return $map;
+	}
+
+
+	public static function formatNames(array $values)
+	{
+		$map = [];
+		foreach ($values as $key => $value) {
+			$key = self::formatName($key);
+			$map[$key] = $value;
+		}
+		return $map;
+	}
+
+
+	/**
+	 * @param string $value
+	 * @return string
+	 */
+	private static function formatName($value)
+	{
+		return strtoupper(str_replace('-', '_', $value));
 	}
 
 }

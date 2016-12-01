@@ -362,7 +362,7 @@ final class ValuesGenerator
 			foreach ($dir as $file) {
 				if ( ! $file->isDir()) {
 					$tableName = $file->getBasename(".csv");
-					$result[$name][$tableName] = Helper::readCsvValues($file->getRealPath());
+					$result[$name][$tableName] = Helper::readCsvKeysValues($file->getRealPath());
 				}
 			}
 		}
