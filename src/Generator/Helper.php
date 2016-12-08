@@ -79,7 +79,7 @@ final class Helper
 	 */
 	public static function readCsvKeysValues($file)
 	{
-		$csv = array_map('str_getcsv', file($file));
+		$csv = array_map([self::class, 'parseFileRow'], file($file));
 		$map = [];
 		foreach ($csv as $row) {
 			$map[$row[0]] = $row[1];
@@ -95,12 +95,27 @@ final class Helper
 	 */
 	public static function readCsvValues($file)
 	{
-		$csv = array_map('str_getcsv', file($file));
+		$csv = array_map([self::class, 'parseFileRow'], file($file));
 		$list = [];
 		foreach ($csv as $row) {
 			$list[] = $row[0];
 		}
 		return $list;
+	}
+
+
+	/**
+	 * @param string $fileRow
+	 *
+	 * @return array
+	 */
+	public static function parseFileRow($fileRow)
+	{
+		$separator = ",";
+		$separatorIndex = mb_strpos($fileRow, $separator);
+		$key = mb_substr($fileRow, 0, $separatorIndex);
+		$value = mb_substr($fileRow, $separatorIndex + mb_strlen($separator));
+		return [$key, mb_substr($value, 0, mb_strlen($value) - 1)];
 	}
 
 
