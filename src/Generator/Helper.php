@@ -115,7 +115,8 @@ final class Helper
 		$separatorIndex = mb_strpos($fileRow, $separator);
 		$key = mb_substr($fileRow, 0, $separatorIndex);
 		$value = mb_substr($fileRow, $separatorIndex + mb_strlen($separator));
-		return [$key, mb_substr($value, 0, mb_strlen($value) - 1)];
+		$endsWitNewline = $value[-1] === "\n";
+		return [$key, mb_substr($value, 0, mb_strlen($value) - ($endsWitNewline ? 1 : 0))];
 	}
 
 
