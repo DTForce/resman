@@ -361,7 +361,7 @@ final class ValuesGenerator
 			$dir = new DirectoryIterator($actualDir . DIRECTORY_SEPARATOR . $version);
 			foreach ($dir as $file) {
 				if ( ! $file->isDir()) {
-					$tableName = $file->getBasename(".csv");
+					$tableName = $file->getBasename('.' . $file->getExtension());
 					$result[$name][$tableName] = Helper::readCsvKeysValues($file->getRealPath());
 				}
 			}
