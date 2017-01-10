@@ -11,6 +11,7 @@
 namespace DTForce\ResMan\Generator;
 
 use DirectoryIterator;
+use dtforce\resman\src\Exception\BadFormatException;
 use PhpParser\Node\Const_;
 use PhpParser\Node\Expr\ArrayItem;
 use PhpParser\Node\Expr\Array_;
@@ -21,6 +22,7 @@ use PhpParser\Node\Stmt\ClassConst;
 
 final class Helper
 {
+	const SEPARATOR = ",";
 
 	/**
 	 * @param array $data
@@ -79,12 +81,7 @@ final class Helper
 	 */
 	public static function readCsvKeysValues($file)
 	{
-		$csv = array_map([self::class, 'parseFileRow'], file($file));
-		$map = [];
-		foreach ($csv as $row) {
-			$map[$row[0]] = $row[1];
-		}
-		return $map;
+		return self::readFile($file, true);
 	}
 
 
@@ -95,28 +92,45 @@ final class Helper
 	 */
 	public static function readCsvValues($file)
 	{
-		$csv = array_map([self::class, 'parseFileRow'], file($file));
-		$list = [];
-		foreach ($csv as $row) {
-			$list[] = $row[0];
-		}
-		return $list;
+		return self::readFile($file, false);
 	}
 
 
 	/**
 	 * @param string $fileRow
+	 * @param  bool $associative
 	 *
-	 * @return array
+	 * @return array|null
 	 */
-	public static function parseFileRow($fileRow)
+	public static function readFile($file, $associative)
 	{
-		$separator = ",";
-		$separatorIndex = mb_strpos($fileRow, $separator);
-		$key = mb_substr($fileRow, 0, $separatorIndex);
-		$value = mb_substr($fileRow, $separatorIndex + mb_strlen($separator));
-		$endsWitNewline = $value[-1] === "\n";
-		return [$key, mb_substr($value, 0, mb_strlen($value) - ($endsWitNewline ? 1 : 0))];
+		$data = [];
+		$handle = fopen($file, 'r');
+		$lineCounter = 0;
+
+		while($fileRow = fgets($handle)) {
+			// line couting starts at 1
+			++$lineCounter;
+			$trimmed = trim($fileRow);
+			$fileRow = rtrim($fileRow, "\n");
+			if (mb_strlen($trimmed) === 0 || $trimmed[0] === '#') {
+				continue;
+			} else if ($associative) {
+				$separatorIndex = mb_strpos($fileRow, self::SEPARATOR);
+				if ($separatorIndex === false || $separatorIndex === 0) {
+					throw new BadFormatException($file, $lineCounter);
+				}
+				$key = mb_substr($fileRow, 0, $separatorIndex);
+				$value = mb_substr($fileRow, $separatorIndex + mb_strlen(self::SEPARATOR));
+				$data[$key] = $value;
+			} else {
+				$data[] = $fileRow;
+			}
+		}
+
+		fclose($handle);
+
+		return $data;
 	}
 
 
